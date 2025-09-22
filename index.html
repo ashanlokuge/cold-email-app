@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Cold Mail Sender</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{ --bg:#ffffff; --card:#ffffff; --text:#374151; --muted:#6b7280; --border:#d1d5db; --accent:#045cd7; --accent-hover:#0348b8; --accent-light:#e6f2ff; --success:#059669; --error:#dc2626; --subtle:#f9fafb; --sidebar-bg:#f8fafc; }
+    *{ box-sizing:border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body{ margin:0; background:var(--bg); color:var(--text); min-height:100vh; }
+    .app-container{ display:flex; min-height:100vh; }
+    .sidebar{ width:280px; background:var(--sidebar-bg); border-right:1px solid var(--border); padding:24px; }
+    .main-content{ flex:1; padding:24px; overflow-y:auto; }
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:16px; padding:32px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); }
+    
+    /* Sidebar Styles */
+    .sidebar h1{ margin:0 0 32px 0; font-size:24px; font-weight:600; color:var(--text); }
+    .nav-menu{ list-style:none; padding:0; margin:0; }
+    .nav-item{ margin-bottom:8px; }
+    .nav-link{ display:flex; align-items:center; padding:12px 16px; border-radius:8px; color:var(--muted); text-decoration:none; transition:all 0.2s; cursor:pointer; }
+    .nav-link:hover{ background:var(--card); color:var(--text); }
+    .nav-link.active{ background:var(--accent); color:white; }
+    .nav-icon{ margin-right:12px; font-size:18px; }
+    
+    /* Main Content Styles */
+    .content-section{ display:none; }
+    .content-section.active{ display:block; }
+    .section-header{ margin-bottom:24px; }
+    .section-title{ margin:0 0 8px 0; font-size:28px; font-weight:600; color:var(--text); }
+    .section-description{ margin:0; color:var(--muted); font-size:16px; }
+    
+    /* Form Styles */
+    label{ display:block; font-size:14px; color:var(--text); margin:16px 0 8px; font-weight:500; }
+    input[type="text"], textarea, select{ width:100%; padding:12px 16px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:14px; transition:border-color 0.2s; }
+    input[type="text"]:focus, textarea:focus, select:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
+    textarea{ min-height:150px; resize:vertical; font-family: inherit; }
+    .row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .muted{ color:var(--muted); font-size:13px; }
+    .btn{ padding:12px 20px; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:white; font-weight:500; cursor:pointer; font-size:14px; transition:all 0.2s; box-shadow:0 1px 2px rgba(4, 92, 215, 0.2); }
+    .btn:hover{ background:var(--accent-hover); border-color:var(--accent-hover); box-shadow:0 2px 4px rgba(4, 92, 215, 0.3); transform:translateY(-1px); }
+    .btn.secondary{ background:var(--card); color:var(--text); border-color:var(--border); }
+    .btn.secondary:hover{ background:var(--subtle); border-color:var(--accent); color:var(--accent); }
+    .status{ margin-top:16px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:var(--subtle); border:1px solid var(--border); border-radius:8px; padding:16px; min-height:80px; white-space:pre-wrap; font-size:13px; }
+    .pill{ display:inline-block; margin-left:8px; padding:4px 12px; border:1px solid var(--border); border-radius:20px; font-size:12px; color:var(--muted); background:var(--subtle); }
+    
+    /* Template System Styles */
+    .template-section{ margin-bottom:24px; }
+    .template-controls{ display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+    .template-controls select{ padding:10px 14px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:14px; }
+    .template-editor{ border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .editor-tabs{ display:flex; background:var(--subtle); border-bottom:1px solid var(--border); }
+    .tab-btn{ flex:1; padding:12px 16px; background:none; border:none; color:var(--muted); cursor:pointer; transition:all 0.2s; font-size:14px; font-weight:500; }
+    .tab-btn.active{ background:var(--card); color:var(--accent); border-bottom:2px solid var(--accent); font-weight:600; }
+    .tab-btn:hover{ background:var(--card); color:var(--text); }
+    .tab-content{ position:relative; }
+    .tab-pane{ display:none; padding:20px; }
+    .tab-pane.active{ display:block; }
+    .email-preview{ background:white; color:var(--text); border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+    .preview-header{ background:var(--subtle); padding:16px 20px; border-bottom:1px solid var(--border); }
+    .preview-subject{ font-weight:600; margin-bottom:6px; color:var(--text); }
+    .preview-meta{ font-size:13px; color:var(--muted); }
+    .preview-body{ padding:20px; line-height:1.6; }
+    
+    /* Sender Management Styles */
+    .senders-section{ padding:0; }
+    .add-sender-form{ background:var(--subtle); padding:20px; border-radius:8px; margin-bottom:20px; }
+    .form-row{ display:flex; gap:16px; margin-bottom:16px; }
+    .form-group{ flex:1; }
+    .form-group label{ display:block; font-size:13px; color:var(--text); margin-bottom:6px; font-weight:500; }
+    .form-group input{ width:100%; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:14px; }
+    .form-group input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-light); }
+    .senders-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:12px; }
+    .sender-card{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px; transition:all 0.2s; }
+    .sender-card:hover{ border-color:var(--accent); box-shadow:0 2px 4px rgba(4, 92, 215, 0.1); }
+    .sender-email{ font-weight:600; color:var(--text); margin-bottom:4px; }
+    .sender-name{ font-size:13px; color:var(--muted); margin-bottom:8px; }
+    .sender-actions{ display:flex; gap:8px; }
+    .btn-small{ padding:6px 12px; font-size:12px; border-radius:4px; }
+    .btn-danger{ background:#dc2626; border-color:#dc2626; color:white; }
+    .btn-danger:hover{ background:#b91c1c; border-color:#b91c1c; }
+    .loading-senders{ text-align:center; color:var(--muted); padding:20px; }
+    .error-message{ background:#fef2f2; border:1px solid #fecaca; color:#dc2626; padding:12px; border-radius:6px; margin-bottom:16px; }
+    .success-message{ background:#f0fdf4; border:1px solid #bbf7d0; color:#059669; padding:12px; border-radius:6px; margin-bottom:16px; }
+    
+    /* Deliverability Tips Styles */
+    .deliverability-tips{ padding:0; }
+    .tip-section{ margin-bottom:20px; }
+    .tip-section h5{ font-size:14px; font-weight:600; }
+    .tip-section ul{ line-height:1.6; }
+    .tip-section li{ margin-bottom:4px; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h1>Cold Mail Sender</h1>
+      <ul class="nav-menu">
+        <li class="nav-item">
+          <a class="nav-link active" data-section="campaign">
+            <span class="nav-icon">📧</span>
+            Run Campaign
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-section="progress">
+            <span class="nav-icon">📊</span>
+            Campaign Progress
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-section="senders">
+            <span class="nav-icon">👤</span>
+            Manage Senders
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Campaign Section -->
+      <div id="campaignSection" class="content-section active">
+        <div class="section-header">
+          <h2 class="section-title">Run Email Campaign</h2>
+          <p class="section-description">Create and send bulk emails to your recipients</p>
+        </div>
+        
+        <div class="card">
+          <label>Campaign Name</label>
+          <input id="campaignName" type="text" placeholder="Enter campaign name (e.g., Q1 Outreach, Product Launch, etc.)" />
+
+          <label>Subject</label>
+          <input id="subject" type="text" placeholder="Enter email subject" />
+
+          <label>Email Body (Text)</label>
+          <textarea id="body" placeholder="Enter your email message here..."></textarea>
+
+          
+          <!-- Email Preview -->
+          <div style="margin-top: 20px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+            <div style="background: var(--subtle); padding: 12px 16px; border-bottom: 1px solid var(--border);">
+              <div style="font-weight: 600; margin-bottom: 4px;">Subject: <span id="previewSubject">Your Subject Here</span></div>
+              <div style="font-size: 13px; color: var(--muted);">To: <span id="previewRecipient">recipient@example.com</span></div>
+            </div>
+            <div style="padding: 16px; background: white;" id="previewBody">
+              <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">Preview will appear here...</pre>
+            </div>
+          </div>
+
+    <label>Bulk list file (CSV/TXT)</label>
+    <div class="row">
+      <input id="file" type="file" accept=".csv,.txt" />
+      <span class="muted">Format: <code>email[,name]</code> per line.</span>
+      <span id="count" class="pill">0</span>
+    </div>
+
+          <div class="row" style="margin-top:20px">
+      <button id="start" class="btn">Start Bulk Send</button>
+      <button id="clear" class="btn secondary" type="button">Clear</button>
+    </div>
+
+    <div id="status" class="status"></div>
+        </div>
+      </div>
+
+      <!-- Campaign Progress Section -->
+      <div id="progressSection" class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">Campaign Progress</h2>
+          <p class="section-description">Monitor your email campaign performance and metrics</p>
+        </div>
+        
+        <div class="card">
+
+
+          <!-- Current Campaign Status -->
+          <div class="campaign-status" style="margin-bottom: 30px;">
+            <h4 style="margin: 0 0 16px 0; color: var(--text);">Current Campaign Status</h4>
+            <div class="progress-bar-container" style="background: #e5e7eb; border-radius: 8px; height: 20px; overflow: hidden; margin-bottom: 12px;">
+              <div class="progress-bar" id="campaignProgress" style="background: #045cd7; height: 100%; width: 0%; transition: width 0.5s ease;"></div>
+            </div>
+            <div class="progress-info" style="display: flex; justify-content: space-between; font-size: 14px; color: var(--muted);">
+              <span id="progressText">No active campaign</span>
+              <span id="progressPercentage">0%</span>
+            </div>
+          </div>
+
+          <!-- Campaign History -->
+          <div class="campaign-history">
+            <h4 style="margin: 0 0 16px 0; color: var(--text);">Recent Campaigns</h4>
+            <div class="campaign-list" id="campaignList">
+              <div class="empty-state" style="text-align: center; color: var(--muted); padding: 40px 20px;">
+                <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                <p>No campaigns yet. Start your first campaign to see progress here!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-time Email Sending Details -->
+          <div class="email-details" style="margin-top: 30px;">
+            <h4 style="margin: 0 0 16px 0; color: var(--text);">Email Sending Details</h4>
+            <div id="emailDetails" class="status" style="height: 250px; overflow-y: auto; font-size: 13px; line-height: 1.4;">
+              <div style="color: var(--muted); text-align: center; padding: 20px;">
+                Email sending details will appear here when campaigns are running...
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-time Activity Log -->
+          <div class="campaign-log" style="margin-top: 30px;">
+            <h4 style="margin: 0 0 16px 0; color: var(--text);">Activity Log</h4>
+            <div id="activityLog" class="status" style="height: 150px; overflow-y: auto; font-size: 12px;">
+              <div style="color: var(--muted); text-align: center; padding: 20px;">
+                Activity log will appear here...
+              </div>
+            </div>
+            <div style="margin-top: 12px;">
+              <button id="clearLog" class="btn secondary" style="font-size: 12px; padding: 8px 16px;">Clear Log</button>
+              <button id="clearDetails" class="btn secondary" style="font-size: 12px; padding: 8px 16px; margin-left: 8px;">Clear Details</button>
+              <button id="refreshStats" class="btn secondary" style="font-size: 12px; padding: 8px 16px; margin-left: 8px;">Refresh Stats</button>
+            </div>
+          </div>
+        </div>
+      </div>      <!-- Senders Section -->
+      <div id="sendersSection" class="content-section">
+        <div class="section-header">
+          <h2 class="section-title">Manage Sender Addresses</h2>
+          <p class="section-description">Create and manage email sender addresses for your campaigns</p>
+        </div>
+        
+        <div class="card">
+          <div class="senders-section">
+            <div class="add-sender-form">
+              <h4 style="margin:0 0 12px 0; color:var(--text); font-size:16px;">Add New Sender</h4>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="senderUsername">Username</label>
+                  <input id="senderUsername" type="text" placeholder="e.g., sales, support, marketing" />
+                </div>
+                <div class="form-group">
+                  <label for="senderDisplayName">Display Name</label>
+                  <input id="senderDisplayName" type="text" placeholder="e.g., Sales Team, Support" />
+                </div>
+              </div>
+              <button id="addSender" class="btn" type="button">Add Sender</button>
+            </div>
+            
+            <div class="senders-list">
+              <h4 style="margin:20px 0 12px 0; color:var(--text); font-size:16px;">Current Senders</h4>
+              <div id="sendersList" class="senders-grid">
+                <div class="loading-senders">Loading senders...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === config ===
+    const API_BASE = "http://localhost:3000";
+
+    // === dom ===
+    const campaignNameIn = document.getElementById("campaignName");
+    const subjectIn = document.getElementById("subject");
+    const bodyIn = document.getElementById("body");
+    const fileIn = document.getElementById("file");
+    const countEl = document.getElementById("count");
+    const startBtn = document.getElementById("start");
+    const clearBtn = document.getElementById("clear");
+    const statusEl = document.getElementById("status");
+    
+    // Preview elements
+    const previewSubject = document.getElementById("previewSubject");
+    const previewRecipient = document.getElementById("previewRecipient");
+    const previewBody = document.getElementById("previewBody");
+    
+    // Sender management elements
+    const senderUsername = document.getElementById("senderUsername");
+    const senderDisplayName = document.getElementById("senderDisplayName");
+    const addSenderBtn = document.getElementById("addSender");
+    const sendersList = document.getElementById("sendersList");
+
+    let recipients = []; // {email,name}[]
+
+    function log(msg){ statusEl.textContent += msg + "\n"; statusEl.scrollTop = statusEl.scrollHeight; }
+
+    // Navigation
+    function switchSection(sectionName){
+      // Remove active class from all nav links and sections
+      document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+      document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
+      
+      // Add active class to selected nav link and section
+      document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+      document.getElementById(`${sectionName}Section`).classList.add('active');
+      
+      // Load data when sections are activated
+      if(sectionName === 'senders'){
+        loadSenders();
+      } else if(sectionName === 'progress'){
+        loadCampaignProgress();
+      }
+    }
+
+    // Simple preview function with spintax expansion
+    function updatePreview(){
+      const subject = subjectIn.value.trim() || "Your Subject Here";
+      const text = bodyIn.value.trim() || "Preview will appear here...";
+      const recipient = recipients.length > 0 ? recipients[0].email : "recipient@example.com";
+      
+      previewSubject.textContent = subject;
+      previewRecipient.textContent = recipient;
+      
+      // Expand spintax and replace variables in preview
+      let previewText = expandSpintax(text);
+      previewText = previewText.replace(/\{\{name\}\}/g, recipients.length > 0 ? recipients[0].name : "John Doe");
+      previewText = previewText.replace(/\{\{email\}\}/g, recipient);
+      previewText = previewText.replace(/\{\{firstName\}\}/g, (recipients.length > 0 ? recipients[0].name : "John").split(' ')[0]);
+      previewText = previewText.replace(/\{\{lastName\}\}/g, (recipients.length > 0 ? recipients[0].name : "Doe").split(' ').slice(1).join(' ') || "Doe");
+      
+      previewBody.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${previewText}</pre>`;
+    }
+
+    // Advanced spintax expansion function for frontend preview
+    function expandSpintax(text) {
+      if (!text) return text;
+      
+      // Simplified spintax parser for better reliability
+      function parseSpintax(input) {
+        let result = input;
+        let maxIterations = 50;
+        let iteration = 0;
+        
+        while (iteration < maxIterations) {
+          let hasChanges = false;
+          
+          // Process all simple spintax patterns
+          result = result.replace(/\{([^{}]*\|[^{}]*)\}/g, (match, options) => {
+            hasChanges = true;
+            const choices = options.split('|').map(opt => opt.trim()).filter(opt => opt.length > 0);
+            if (choices.length === 0) return match;
+            
+            const randomIndex = Math.floor(Math.random() * choices.length);
+            return choices[randomIndex];
+          });
+          
+          if (!hasChanges) break;
+          iteration++;
+        }
+        
+        return result;
+      }
+      
+      let result = parseSpintax(text);
+      
+      // Handle weighted spintax: {option1*3|option2*1|option3*2}
+      result = result.replace(/\{([^{}]*\*[^{}]*)\}/g, (match, content) => {
+        const weightedOptions = [];
+        const parts = content.split('|');
+        
+        for (const part of parts) {
+          const trimmed = part.trim();
+          if (trimmed.includes('*')) {
+            const [option, weightStr] = trimmed.split('*');
+            const weight = parseInt(weightStr) || 1;
+            for (let i = 0; i < weight; i++) {
+              weightedOptions.push(option.trim());
+            }
+          } else {
+            weightedOptions.push(trimmed);
+          }
+        }
+        
+        if (weightedOptions.length > 0) {
+          const randomIndex = Math.floor(Math.random() * weightedOptions.length);
+          return weightedOptions[randomIndex];
+        }
+        return match;
+      });
+      
+      // Handle range spintax: {#1-5}
+      result = result.replace(/\{#(\d+)-(\d+)\}/g, (match, min, max) => {
+        const minNum = parseInt(min);
+        const maxNum = parseInt(max);
+        const randomNum = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
+        return randomNum.toString();
+      });
+      
+      // Handle capitalization: {^option1|option2}
+      result = result.replace(/\{\^([^{}]+)\}/g, (match, content) => {
+        if (content.includes('|')) {
+          const options = content.split('|').map(opt => opt.trim()).filter(opt => opt.length > 0);
+          const randomIndex = Math.floor(Math.random() * options.length);
+          const selected = options[randomIndex];
+          return selected.charAt(0).toUpperCase() + selected.slice(1).toLowerCase();
+        }
+        return content.charAt(0).toUpperCase() + content.slice(1).toLowerCase();
+      });
+      
+      // Handle all caps: {!option1|option2}
+      result = result.replace(/\{!([^{}]+)\}/g, (match, content) => {
+        if (content.includes('|')) {
+          const options = content.split('|').map(opt => opt.trim()).filter(opt => opt.length > 0);
+          const randomIndex = Math.floor(Math.random() * options.length);
+          return options[randomIndex].toUpperCase();
+        }
+        return content.toUpperCase();
+      });
+      
+      return result;
+    }
+
+    // Test server connection
+    async function testServerConnection(){
+      try {
+        const res = await fetch(API_BASE + "/test");
+        const data = await res.json();
+        console.log('Server test response:', data);
+        return true;
+      } catch (err) {
+        console.error('Server test failed:', err);
+        return false;
+      }
+    }
+
+    // Sender management functions
+    async function loadSenders(){
+      try {
+        sendersList.innerHTML = '<div class="loading-senders">Loading senders...</div>';
+        const res = await fetch(API_BASE + "/senders");
+        const data = await res.json();
+        
+        if(res.ok && data.senders){
+          displaySenders(data.senders);
+        } else {
+          sendersList.innerHTML = '<div class="error-message">Failed to load senders: ' + (data.error || 'Unknown error') + '</div>';
+        }
+      } catch (err) {
+        sendersList.innerHTML = '<div class="error-message">Failed to load senders: ' + err.message + '</div>';
+      }
+    }
+
+    function displaySenders(senders){
+      if(senders.length === 0){
+        sendersList.innerHTML = '<div class="loading-senders">No senders found. Add your first sender above.</div>';
+        return;
+      }
+      
+      sendersList.innerHTML = senders.map(sender => `
+        <div class="sender-card">
+          <div class="sender-email">${sender}</div>
+          <div class="sender-name">${sender.split('@')[0]}@${sender.split('@')[1]}</div>
+          <div class="sender-actions">
+            <button class="btn btn-small btn-danger" onclick="deleteSender('${sender}')">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function addSender(){
+      const username = senderUsername.value.trim();
+      const displayName = senderDisplayName.value.trim();
+      
+      if(!username){
+        showMessage('Username is required', 'error');
+        return;
+      }
+      
+      if(!displayName){
+        showMessage('Display name is required', 'error');
+        return;
+      }
+      
+      try {
+        addSenderBtn.textContent = 'Adding...';
+        addSenderBtn.disabled = true;
+        
+        const res = await fetch(API_BASE + "/senders", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ username, displayName })
+        });
+        
+        const data = await res.json();
+        
+        if(res.ok){
+          showMessage(`Sender ${username}@${data.domain || 'your-domain.com'} added successfully!`, 'success');
+          senderUsername.value = '';
+          senderDisplayName.value = '';
+          loadSenders(); // Refresh the list
+        } else {
+          showMessage('Failed to add sender: ' + (data.error || 'Unknown error'), 'error');
+        }
+      } catch (err) {
+        showMessage('Failed to add sender: ' + err.message, 'error');
+      } finally {
+        addSenderBtn.textContent = 'Add Sender';
+        addSenderBtn.disabled = false;
+      }
+    }
+
+    function showMessage(message, type){
+      const existing = document.querySelector('.error-message, .success-message');
+      if(existing) existing.remove();
+      
+      const messageDiv = document.createElement('div');
+      messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+      messageDiv.textContent = message;
+      
+      const sendersSection = document.querySelector('.senders-section');
+      sendersSection.insertBefore(messageDiv, sendersSection.firstChild);
+      
+      setTimeout(() => messageDiv.remove(), 5000);
+    }
+
+    async function testSender(senderEmail){
+      try {
+        log(`Testing sender: ${senderEmail}`);
+        showMessage(`Test functionality for ${senderEmail} - coming soon!`, 'success');
+      } catch (err) {
+        showMessage('Test failed: ' + err.message, 'error');
+      }
+    }
+
+    async function deleteSender(senderEmail){
+      const username = senderEmail.split('@')[0];
+      
+      // Confirmation dialog
+      if(!confirm(`Are you sure you want to delete the sender "${senderEmail}"?\n\nThis action cannot be undone and will remove the sender from Azure Communication Services.`)){
+        return;
+      }
+      
+      // Test server connection first
+      const serverOk = await testServerConnection();
+      if (!serverOk) {
+        showMessage('Cannot connect to server. Please make sure the backend is running on port 3000.', 'error');
+        return;
+      }
+      
+      try {
+        console.log('Sending delete request for:', username);
+        
+        const res = await fetch(API_BASE + "/senders", {
+          method: "DELETE",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ username })
+        });
+        
+        console.log('Delete response status:', res.status);
+        console.log('Delete response headers:', res.headers);
+        
+        // Check if response is JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await res.text();
+          console.error('Non-JSON response:', text);
+          showMessage('Server error: Received HTML instead of JSON. Check if backend is running.', 'error');
+          return;
+        }
+        
+        const data = await res.json();
+        console.log('Delete response data:', data);
+        
+        if(res.ok){
+          showMessage(`Sender ${senderEmail} deleted successfully!`, 'success');
+          loadSenders(); // Refresh the list
+        } else {
+          showMessage('Failed to delete sender: ' + (data.error || 'Unknown error'), 'error');
+        }
+      } catch (err) {
+        console.error('Delete error:', err);
+        showMessage('Failed to delete sender: ' + err.message, 'error');
+      }
+    }
+
+    function parseRecipients(text){
+      const lines = (text || "").split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      const out = []; const seen = new Set();
+      for(const line of lines){
+        const [email, nameRaw] = line.split(",").map(s => (s||"").trim());
+        if(!email) continue;
+        const key = email.toLowerCase();
+        if(seen.has(key)) continue;
+        seen.add(key);
+        out.push({ email, name: nameRaw || email.split("@")[0] });
+      }
+      return out;
+    }
+
+
+    // Event listeners
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchSection(link.dataset.section);
+      });
+    });
+
+    // Simple preview update on input
+    subjectIn.addEventListener('input', updatePreview);
+    bodyIn.addEventListener('input', updatePreview);
+
+    addSenderBtn.addEventListener('click', addSender);
+    
+    senderUsername.addEventListener('keypress', (e) => {
+      if(e.key === 'Enter') addSender();
+    });
+    senderDisplayName.addEventListener('keypress', (e) => {
+      if(e.key === 'Enter') addSender();
+    });
+
+    fileIn.addEventListener("change", async (e)=>{
+      statusEl.textContent = "";
+      recipients = [];
+      const f = e.target.files?.[0];
+      if(!f){ countEl.textContent = "0"; return; }
+      const text = await f.text();
+      recipients = parseRecipients(text);
+      countEl.textContent = String(recipients.length);
+      log(`Loaded ${recipients.length} recipient(s) from ${f.name}`);
+      updatePreview();
+    });
+
+    clearBtn.addEventListener("click", ()=>{
+      campaignNameIn.value = "";
+      subjectIn.value = "";
+      bodyIn.value = "";
+      fileIn.value = "";
+      recipients = [];
+      countEl.textContent = "0";
+      statusEl.textContent = "";
+      updatePreview();
+    });
+
+    startBtn.addEventListener("click", async ()=>{
+      statusEl.textContent = "";
+      const campaignName = campaignNameIn.value.trim();
+      const subject = subjectIn.value.trim();
+      const text = bodyIn.value.trim();
+      if(!campaignName){ log("Campaign name is required."); return; }
+      if(!subject){ log("Subject is required."); return; }
+      if(!text){ log("Body is required."); return; }
+      if(recipients.length === 0){ log("Please import a recipients file."); return; }
+
+      const payload = {
+        campaignName,
+        subject,
+        text,
+        recipients
+      };
+
+      // Initialize campaign tracking
+      campaignStats = {
+        totalSent: 0,
+        successful: 0,
+        failed: 0,
+        startTime: Date.now(),
+        endTime: null,
+        isRunning: true,
+        currentCampaign: {
+          name: campaignName,
+          subject: subject,
+          totalRecipients: recipients.length,
+          timestamp: Date.now()
+        }
+      };
+
+      updateCampaignProgress(0, recipients.length);
+      addToActivityLog(`🚀 Starting campaign: "${campaignName}" (${subject}) to ${recipients.length} recipients`, 'info');
+
+      try{
+        log(`Sending bulk email to ${recipients.length} recipient(s)...`);
+        const res = await fetch(API_BASE + "/bulk-send", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        
+        if(res.status === 202 && data.accepted){
+          log("✅ Email sending started successfully!");
+          log(`📧 ${recipients.length} emails will be sent in the background.`);
+          addToActivityLog(`✅ Campaign accepted by server - sending ${recipients.length} emails`, 'success');
+          
+          // Test backend connection immediately
+          setTimeout(async () => {
+            try {
+              const testRes = await fetch(API_BASE + "/campaign-status");
+              if (testRes.ok) {
+                const testData = await testRes.json();
+                console.log('🧪 Backend test successful:', testData);
+                addToActivityLog(`🔗 Backend connection verified`, 'success');
+              } else {
+                addToActivityLog(`⚠️ Backend connection issue: ${testRes.status}`, 'error');
+              }
+            } catch (err) {
+              addToActivityLog(`❌ Backend connection failed: ${err.message}`, 'error');
+            }
+          }, 500);
+          
+          // Start polling for progress updates immediately
+          startProgressPolling();
+          
+          // Also switch to progress tab to show the progress
+          switchSection('progress');
+        } else {
+          log(`❌ Error: ${data.error || 'Unknown error occurred'}`);
+          addToActivityLog(`❌ Campaign failed: ${data.error || 'Unknown error'}`, 'error');
+          campaignStats.isRunning = false;
+        }
+      } catch (err){
+        log(`❌ Failed to send emails: ${err?.message || 'Connection error'}`);
+        addToActivityLog(`❌ Connection error: ${err?.message || 'Unknown error'}`, 'error');
+        campaignStats.isRunning = false;
+      }
+    });
+
+    // Progress polling function
+    function startProgressPolling() {
+      let lastEmailCount = 0;
+      
+      console.log('🔄 Starting progress polling...');
+      addToActivityLog('🔄 Starting progress monitoring...', 'info');
+      
+      const pollInterval = setInterval(async () => {
+        try {
+          console.log('📡 Polling campaign status...');
+          
+          // Fetch campaign status
+          const statusRes = await fetch(API_BASE + "/campaign-status");
+          if (statusRes.ok) {
+            const status = await statusRes.json();
+            console.log('📊 Status received:', status);
+            
+            // Update campaign stats
+            campaignStats.totalSent = status.sent || 0;
+            campaignStats.successful = status.successful || 0;
+            campaignStats.failed = status.failed || 0;
+            
+            // Update progress bar
+            updateCampaignProgress(campaignStats.totalSent, campaignStats.currentCampaign.totalRecipients);
+            
+            // Log progress update
+            if (campaignStats.totalSent > lastEmailCount) {
+              addToActivityLog(`📈 Progress: ${campaignStats.totalSent}/${campaignStats.currentCampaign.totalRecipients} emails sent`, 'info');
+            }
+            
+            // Fetch email details if there are new emails
+            if (campaignStats.totalSent > lastEmailCount) {
+              try {
+                const detailsRes = await fetch(API_BASE + "/email-details");
+                if (detailsRes.ok) {
+                  const detailsData = await detailsRes.json();
+                  
+                  // Add new email details
+                  const newEmails = detailsData.details.slice(lastEmailCount);
+                  newEmails.forEach(email => {
+                    addToEmailDetails(
+                      email.campaignName,
+                      email.recipientEmail,
+                      email.senderEmail,
+                      email.status
+                    );
+                  });
+                }
+              } catch (detailsErr) {
+                console.warn('Email details fetch error:', detailsErr);
+              }
+              
+              lastEmailCount = campaignStats.totalSent;
+            }
+            
+            // Check if campaign is completed
+            if (status.completed) {
+              console.log('✅ Campaign completed!');
+              campaignStats.isRunning = false;
+              campaignStats.endTime = Date.now();
+              
+              // Final progress update
+              updateCampaignProgress(campaignStats.totalSent, campaignStats.currentCampaign.totalRecipients);
+              
+              // Save to history
+              saveCampaignToHistory({
+                name: campaignStats.currentCampaign.name,
+                subject: campaignStats.currentCampaign.subject,
+                totalSent: campaignStats.totalSent,
+                successful: campaignStats.successful,
+                failed: campaignStats.failed,
+                duration: campaignStats.endTime - campaignStats.startTime,
+                timestamp: campaignStats.currentCampaign.timestamp
+              });
+              
+              addToActivityLog(`🎉 Campaign "${campaignStats.currentCampaign.name}" completed! ${campaignStats.successful}/${campaignStats.totalSent} emails sent successfully`, 'success');
+              clearInterval(pollInterval);
+            }
+          } else {
+            console.error('Status fetch failed:', statusRes.status);
+          }
+        } catch (err) {
+          console.error('Progress polling error:', err);
+          addToActivityLog(`⚠️ Polling error: ${err.message}`, 'error');
+        }
+      }, 1500); // Poll every 1.5 seconds for faster updates
+      
+      // Stop polling after 30 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        if (campaignStats.isRunning) {
+          campaignStats.isRunning = false;
+          addToActivityLog('⏰ Progress polling stopped after 30 minutes', 'info');
+        }
+      }, 30 * 60 * 1000);
+    }
+
+    // Campaign Progress functionality
+    let campaignStats = {
+      totalSent: 0,
+      successful: 0,
+      failed: 0,
+      startTime: null,
+      endTime: null,
+      isRunning: false,
+      currentCampaign: null
+    };
+
+    function loadCampaignProgress() {
+      loadCampaignHistory();
+    }
+
+
+
+    function updateCampaignProgress(current, total) {
+      const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+      const progressBar = document.getElementById('campaignProgress');
+      const progressPercentage = document.getElementById('progressPercentage');
+      const progressText = document.getElementById('progressText');
+      
+      if (progressBar) {
+        progressBar.style.width = percentage + '%';
+        console.log(`📊 Progress bar updated: ${percentage}% (${current}/${total})`);
+      }
+      
+      if (progressPercentage) {
+        progressPercentage.textContent = percentage + '%';
+      }
+      
+      const campaignName = campaignStats.currentCampaign?.name || 'Campaign';
+      if (progressText) {
+        progressText.textContent = 
+          campaignStats.isRunning ? `"${campaignName}": Sending ${current} of ${total} emails...` : 
+          total > 0 ? `"${campaignName}" completed: ${current}/${total}` : 'No active campaign';
+      }
+    }
+
+    function addToActivityLog(message, type = 'info') {
+      const log = document.getElementById('activityLog');
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.style.marginBottom = '4px';
+      
+      const color = type === 'success' ? 'var(--success)' : 
+                   type === 'error' ? 'var(--error)' : 
+                   'var(--text)';
+      
+      logEntry.innerHTML = `<span style="color: var(--muted);">[${timestamp}]</span> <span style="color: ${color};">${message}</span>`;
+      log.appendChild(logEntry);
+      log.scrollTop = log.scrollHeight;
+      
+      // Keep only last 50 entries for activity log
+      while (log.children.length > 50) {
+        log.removeChild(log.firstChild);
+      }
+    }
+
+    function addToEmailDetails(campaignName, recipientEmail, senderEmail, status = 'sending') {
+      const details = document.getElementById('emailDetails');
+      
+      // Check if campaign header exists, if not create it
+      let campaignHeader = details.querySelector(`[data-campaign="${campaignName}"]`);
+      if (!campaignHeader) {
+        campaignHeader = document.createElement('div');
+        campaignHeader.setAttribute('data-campaign', campaignName);
+        campaignHeader.style.marginBottom = '16px';
+        campaignHeader.innerHTML = `
+          <div style="font-weight: 600; color: var(--accent); font-size: 14px; margin-bottom: 8px; padding: 8px; background: var(--accent-light); border-radius: 4px;">
+            📧 ${campaignName}
+          </div>
+          <div class="email-list" style="margin-left: 16px;"></div>
+        `;
+        details.appendChild(campaignHeader);
+      }
+      
+      const emailList = campaignHeader.querySelector('.email-list');
+      const timestamp = new Date().toLocaleTimeString();
+      const emailEntry = document.createElement('div');
+      emailEntry.style.marginBottom = '3px';
+      emailEntry.style.fontSize = '12px';
+      
+      const statusIcon = status === 'success' ? '✅' : status === 'error' ? '❌' : '📤';
+      const statusColor = status === 'success' ? 'var(--success)' : status === 'error' ? 'var(--error)' : 'var(--muted)';
+      
+      emailEntry.innerHTML = `
+        <span style="color: var(--muted);">[${timestamp}]</span> 
+        <span style="color: ${statusColor};">${statusIcon}</span>
+        <span style="color: var(--text);">${recipientEmail}</span> 
+        <span style="color: var(--muted);">→</span> 
+        <span style="color: var(--accent);">${senderEmail}</span>
+      `;
+      
+      emailList.appendChild(emailEntry);
+      details.scrollTop = details.scrollHeight;
+      
+      // Keep only last 200 email entries total
+      const allEmailEntries = details.querySelectorAll('.email-list div');
+      if (allEmailEntries.length > 200) {
+        allEmailEntries[0].remove();
+      }
+    }
+
+    function loadCampaignHistory() {
+      // Load from localStorage or API
+      const history = JSON.parse(localStorage.getItem('campaignHistory') || '[]');
+      const campaignList = document.getElementById('campaignList');
+      
+      if (history.length === 0) {
+        campaignList.innerHTML = `
+          <div class="empty-state" style="text-align: center; color: var(--muted); padding: 40px 20px;">
+            <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+            <p>No campaigns yet. Start your first campaign to see progress here!</p>
+          </div>`;
+        return;
+      }
+      
+      campaignList.innerHTML = history.map(campaign => `
+        <div class="campaign-item" style="border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div>
+              <strong style="color: var(--text); font-size: 16px;">${campaign.name || 'Unnamed Campaign'}</strong>
+              <div style="font-size: 13px; color: var(--muted); margin-top: 2px;">Subject: ${campaign.subject}</div>
+            </div>
+            <span style="font-size: 12px; color: var(--muted);">${new Date(campaign.timestamp).toLocaleString()}</span>
+          </div>
+          <div style="display: flex; gap: 20px; font-size: 14px; color: var(--muted);">
+            <span>📧 ${campaign.totalSent} sent</span>
+            <span style="color: var(--success);">✅ ${campaign.successful} successful</span>
+            <span style="color: var(--error);">❌ ${campaign.failed} failed</span>
+            <span>⏱️ ${Math.round(campaign.duration / 1000)}s</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function saveCampaignToHistory(campaignData) {
+      const history = JSON.parse(localStorage.getItem('campaignHistory') || '[]');
+      history.unshift(campaignData);
+      
+      // Keep only last 10 campaigns
+      if (history.length > 10) {
+        history.splice(10);
+      }
+      
+      localStorage.setItem('campaignHistory', JSON.stringify(history));
+    }
+
+    // Event listeners for progress tab
+    document.getElementById('clearLog').addEventListener('click', () => {
+      document.getElementById('activityLog').innerHTML = `
+        <div style="color: var(--muted); text-align: center; padding: 20px;">
+          Activity log cleared...
+        </div>`;
+    });
+
+    document.getElementById('clearDetails').addEventListener('click', () => {
+      document.getElementById('emailDetails').innerHTML = `
+        <div style="color: var(--muted); text-align: center; padding: 20px;">
+          Email sending details cleared...
+        </div>`;
+    });
+
+    document.getElementById('refreshStats').addEventListener('click', () => {
+      loadCampaignProgress();
+      addToActivityLog('Data refreshed', 'info');
+    });
+
+    // Initialize
+    updatePreview();
+  </script>
+</body>
+</html>
